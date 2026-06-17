@@ -1,7 +1,4 @@
 //! Module-level comment
-pub mod test2;
-pub use test2::*;
-
 use std::collections::HashMap;
 // Write
 use std::io::Write;
@@ -13,11 +10,12 @@ use std::io::Read;
 use tokio::sync::Mutex;
 
 use other_package::test;
-
 use package::test;
 use crate::test2 as test3;
 use super::test;
 use crate::test;
+pub mod test2;
+pub use test2::*;
 
 macro_rules! test_macro {}
 pub use test_macro;

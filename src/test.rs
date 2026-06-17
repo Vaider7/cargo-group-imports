@@ -22,6 +22,7 @@ fn test() -> anyhow::Result<()> {
         process_file(
             file.path(),
             "package",
+            "2021",
             // Workspace packages
             &WorkspacePackages::from([("other_package".to_string(), Default::default())]),
             &Flags {

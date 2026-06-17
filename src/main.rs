@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::thread::available_parallelism;
 
@@ -31,12 +32,20 @@ fn main_impl() -> anyhow::Result<()> {
         })
         .collect();
     info!("Workspace packages: {:?}", workspace_packages);
+    // Edition per package, passed to rustfmt (which reads from stdin and would otherwise
+    // default to edition 2015).
+    let editions: HashMap<String, String> = metadata
+        .workspace_packages()
+        .into_iter()
+        .map(|p| (p.name.replace('-', "_"), p.edition.to_string()))
+        .collect();
 
     let output = workspace_packages
         .par_iter()
         // Process each package
         .flat_map(|(name, root)| {
             info!("Processing {}", name);
+            let edition = editions.get(name).map_or("2021", String::as_str);
 
             // Process each file in the package
             let files: Vec<PathBuf> = walkdir::WalkDir::new(root)
@@ -66,7 +75,7 @@ fn main_impl() -> anyhow::Result<()> {
             files
                 .into_par_iter()
                 .with_max_len(available_parallelism().map(|n| n.get()).unwrap_or(8))
-                .map(|f| process_file(&f, name, &workspace_packages, &args))
+                .map(|f| process_file(&f, name, edition, &workspace_packages, &args))
         })
         .collect::<Result<Vec<_>, _>>()?;
     info!(

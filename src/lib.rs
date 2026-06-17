@@ -61,14 +61,30 @@ struct Use {
     module: String,
     module_decl: bool,
 }
-/// This defines the order
+/// The variant order defines the import order within a file.
+///
+/// Variants are additionally collapsed into visual sections by [`UseType::section`]:
+/// `std`, external crates, and "inner" code. The inner section contains, in this order,
+/// workspace crates, crate-local imports (`crate::`/`super::`/`self::`) and finally module
+/// declarations (`mod foo;` / re-exports). Variants that share a section are emitted
+/// contiguously, with a blank line only between different sections.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone, Debug)]
 enum UseType {
-    Module,
     Std,
     External,
     Workspace,
     Crate,
+    Module,
+}
+impl UseType {
+    /// Visual section index: `std` (0), external crates (1), inner code (2).
+    fn section(self) -> u8 {
+        match self {
+            UseType::Std => 0,
+            UseType::External => 1,
+            UseType::Workspace | UseType::Crate | UseType::Module => 2,
+        }
+    }
 }
 
 fn node_as_utf8(node: tree_sitter::Node<'_>, source: &str) -> anyhow::Result<String> {
@@ -131,6 +147,7 @@ pub type WorkspacePackages = HashMap<String, camino::Utf8PathBuf>;
 pub fn process_file(
     filename: &Path,
     package_name: &str,
+    edition: &str,
     workspace_packages: &WorkspacePackages,
     args: &Flags,
 ) -> anyhow::Result<bool> {
@@ -215,8 +232,20 @@ pub fn process_file(
     debug!("Grouped uses {:#?}", grouped);
 
     // Phase 4: Insert into source file
-    let imports = grouped
-        .values()
+    // Collapse the per-type groups into visual sections (std / external / inner). Types
+    // within the same section are emitted contiguously; sections are separated by a blank
+    // line.
+    let mut sections: Vec<Vec<&Use>> = vec![];
+    let mut current_section: Option<u8> = None;
+    for (use_type, group) in &grouped {
+        if current_section != Some(use_type.section()) {
+            current_section = Some(use_type.section());
+            sections.push(vec![]);
+        }
+        sections.last_mut().unwrap().extend(group.iter().copied());
+    }
+    let imports = sections
+        .iter()
         .map(|uses| {
             uses.iter()
                 .map(|u| &u.contents)
@@ -257,8 +286,13 @@ pub fn process_file(
     // super::,crate:: etc. imports. Most of the runtime is due to running rustfmt.
     let modified = source != source_modified;
     if modified && args.rustfmt {
+        // rustfmt reads from stdin, so it cannot locate the crate's Cargo.toml and would
+        // otherwise default to edition 2015 (rejecting e.g. `async fn`). Pass the package's
+        // edition explicitly.
         let mut cmd = std::process::Command::new("rustfmt")
             .current_dir(&args.workspace)
+            .arg("--edition")
+            .arg(edition)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .spawn()?;
