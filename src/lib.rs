@@ -257,7 +257,7 @@ pub fn process_file(
     let lines: BTreeSet<usize> = grouped
         .values()
         .flatten()
-        .flat_map(|l| (l.start.row..=l.end.row))
+        .flat_map(|l| l.start.row..=l.end.row)
         .collect();
     let mut source_modified = source
         .lines()
