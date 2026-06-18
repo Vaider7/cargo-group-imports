@@ -64,25 +64,26 @@ struct Use {
 /// The variant order defines the import order within a file.
 ///
 /// Variants are additionally collapsed into visual sections by [`UseType::section`]:
-/// `std`, external crates, and "inner" code. The inner section contains, in this order,
-/// workspace crates, crate-local imports (`crate::`/`super::`/`self::`) and finally module
-/// declarations (`mod foo;` / re-exports). Variants that share a section are emitted
-/// contiguously, with a blank line only between different sections.
+/// module declarations (`mod foo;` / re-exports) first, then `std`, external crates, and
+/// finally "inner" code (workspace crates and crate-local imports `crate::`/`super::`/`self::`).
+/// Variants that share a section are emitted contiguously, with a blank line only between
+/// different sections.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone, Debug)]
 enum UseType {
+    Module,
     Std,
     External,
     Workspace,
     Crate,
-    Module,
 }
 impl UseType {
-    /// Visual section index: `std` (0), external crates (1), inner code (2).
+    /// Visual section index: modules (0), `std` (1), external crates (2), inner code (3).
     fn section(self) -> u8 {
         match self {
-            UseType::Std => 0,
-            UseType::External => 1,
-            UseType::Workspace | UseType::Crate | UseType::Module => 2,
+            UseType::Module => 0,
+            UseType::Std => 1,
+            UseType::External => 2,
+            UseType::Workspace | UseType::Crate => 3,
         }
     }
 }

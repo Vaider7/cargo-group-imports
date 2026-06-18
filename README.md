@@ -1,23 +1,24 @@
 # cargo-group-imports
 
-Group imports in workspace source files into three sections:
+Group imports in workspace source files into these sections:
 
-1. Standard library (`std`)
-2. External crates
-3. Inner code: workspace crates, then crate-local imports (`crate::`, `super::`, `self::`),
-   and finally module declarations (`mod foo;`) and their re-exports
+1. Module declarations (`mod foo;`) and their re-exports
+2. Standard library (`std`)
+3. External crates
+4. Inner code: workspace crates, then crate-local imports (`crate::`, `super::`, `self::`)
 
 For example (see also the before/after files in `test-data`):
 
 ```rust
+mod module;
+use module::Client;
+
 use std::sync::Arc;
 
 use tokio::sync::Mutex;
 
 use other_crate::Flags;
 use crate::Options;
-mod module;
-use module::Client;
 
 ```
 
